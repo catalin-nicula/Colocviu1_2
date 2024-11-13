@@ -1,8 +1,13 @@
 package ro.pub.cs.systems.eim.colocviu1_2
 
 import android.app.Activity
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
@@ -14,13 +19,20 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import ro.pub.cs.systems.eim.colocviu1_2.Constants.All_TERMS_STATE
+import ro.pub.cs.systems.eim.colocviu1_2.Constants.BROADCAST_RECEIVER_EXTRA
+import ro.pub.cs.systems.eim.colocviu1_2.Constants.BROADCAST_RECEIVER_TAG
+import ro.pub.cs.systems.eim.colocviu1_2.Constants.SERVICE_STARTED
+import ro.pub.cs.systems.eim.colocviu1_2.Constants.SERVICE_STOPPED
 import ro.pub.cs.systems.eim.colocviu1_2.Constants.SUM_RESULT_STATE
+import java.util.Objects
 
 class Colocviu1_2MainActivity : AppCompatActivity() {
     lateinit var nextTermEditText: EditText
     lateinit var allTermViewText: TextView
     lateinit var addButton: Button
     lateinit var computeButton: Button
+    private val intentFilter = IntentFilter()
+    private var serviceStatus: Int = SERVICE_STOPPED
     var sumState: Int = 0
     var oldAllTerms:String = ""
 
@@ -41,6 +53,12 @@ class Colocviu1_2MainActivity : AppCompatActivity() {
             }
         }
     }
+    private val messageBroadcastReceiver = MessageBroadcastReceiver()
+    private class MessageBroadcastReceiver : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            Toast.makeText(null, "Received broad", Toast.LENGTH_LONG).show()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -59,6 +77,13 @@ class Colocviu1_2MainActivity : AppCompatActivity() {
             sumState = sum;
             if (result.resultCode == Activity.RESULT_OK) {
                 Toast.makeText(this, "The activity returned with sum: $sumState", Toast.LENGTH_LONG).show()
+            }
+            if(sumState > 10){
+                val intent = Intent(this, Colocviu1_2Service::class.java)
+                intent.putExtra(SUM_RESULT_STATE, sumState)
+                startService(intent)
+                serviceStatus = SERVICE_STARTED
+
             }
         }
 
@@ -89,5 +114,28 @@ class Colocviu1_2MainActivity : AppCompatActivity() {
             sumState = 0
         }
         Toast.makeText(this, "The activity returned with sum: $sumState", Toast.LENGTH_LONG).show()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(messageBroadcastReceiver, intentFilter, RECEIVER_EXPORTED)
+        } else {
+            registerReceiver(messageBroadcastReceiver, intentFilter)
+        }
+    }
+
+    override fun onPause() {
+        unregisterReceiver(messageBroadcastReceiver)
+        super.onPause()
+    }
+
+    override fun onDestroy() {
+        val intent = Intent(
+            this,
+            Colocviu1_2Service::class.java
+        )
+        stopService(intent)
+        super.onDestroy()
     }
 }
